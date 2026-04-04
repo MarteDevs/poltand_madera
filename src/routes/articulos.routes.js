@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const articulosController = require('../controllers/articulos.controller');
-const { verificarToken, esAdmin } = require('../middlewares/auth.middleware');
+const { verificarToken, esAdmin } = require('../middleware/auth.middleware');
 
 // GET no requiere ser admin, solo estar logueado
 router.get('/', verificarToken, articulosController.getArticulos);

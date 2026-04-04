@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const supervisoresController = require('../controllers/supervisores.controller');
-const { verificarToken, esAdmin } = require('../middlewares/auth.middleware');
+const { verificarToken, esAdmin } = require('../middleware/auth.middleware');
 
 router.get('/', verificarToken, supervisoresController.getSupervisores);
 router.post('/', [verificarToken, esAdmin], supervisoresController.crearSupervisor);

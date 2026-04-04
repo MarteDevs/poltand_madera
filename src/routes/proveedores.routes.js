@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const proveedoresController = require('../controllers/proveedores.controller');
-const { verificarToken, esAdmin } = require('../middlewares/auth.middleware');
+const { verificarToken, esAdmin } = require('../middleware/auth.middleware');
 
 router.get('/', verificarToken, proveedoresController.getProveedores);
 router.post('/', [verificarToken, esAdmin], proveedoresController.crearProveedor);

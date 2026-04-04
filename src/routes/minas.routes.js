@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const minasController = require('../controllers/minas.controller');
-const { verificarToken, esAdmin } = require('../middlewares/auth.middleware');
+const { verificarToken, esAdmin } = require('../middleware/auth.middleware');
 
 // GET: Listar minas (Cualquier usuario logueado)
 router.get('/', verificarToken, minasController.getMinas);
