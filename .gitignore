@@ -140,3 +140,5 @@ Thumbs.db
 
 # Database dumps
 *.sql
+
+*.vba
