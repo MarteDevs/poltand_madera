@@ -19,8 +19,20 @@ app.get('/api/test', (req, res) => {
     res.json({ mensaje: '¡El backend de Madera Poltand está funcionando a la perfección!' });
 });
 
+//CONEXION AND LOGIN
 app.use('/api/auth', require('./routes/auth.routes'));
-app.use('/api/catalogos', require('./routes/catalogos.routes'));
+
+
+
+// Catálogos separados
+app.use('/api/articulos', require('./routes/articulos.routes'));
+app.use('/api/minas', require('./routes/minas.routes'));
+app.use('/api/proveedores', require('./routes/proveedores.routes'));
+app.use('/api/supervisores', require('./routes/supervisores.routes'));
+
+
+
+// OPERACIONES
 // RUTAS DE REQUERIMIENTOS (Protegidas)
 app.use('/api/requerimientos', require('./routes/requerimientos.routes'));
 
