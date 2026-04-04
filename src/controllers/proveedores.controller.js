@@ -13,6 +13,8 @@ const getProveedores = async (req, res) => {
 const crearProveedor = async (req, res) => {
     try {
         const { nombre } = req.body;
+        if (!nombre) return res.status(400).json({ mensaje: 'El nombre es obligatorio.' });
+        
         const [resultado] = await db.query(
             `INSERT INTO proveedores (nombre) VALUES (?)`,
             [nombre]
@@ -28,6 +30,8 @@ const actualizarProveedor = async (req, res) => {
     try {
         const { id } = req.params;
         const { nombre } = req.body;
+        if (!nombre) return res.status(400).json({ mensaje: 'El nombre es obligatorio.' });
+
         const [resultado] = await db.query(
             `UPDATE proveedores SET nombre = ? WHERE id = ?`,
             [nombre, id]

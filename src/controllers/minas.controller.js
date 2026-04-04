@@ -16,6 +16,10 @@ const crearMina = async (req, res) => {
     try {
         const { nombre, razon_social, ruc } = req.body;
         
+        if (!nombre) {
+            return res.status(400).json({ mensaje: 'El nombre de la mina es obligatorio.' });
+        }
+        
         const [resultado] = await db.query(
             `INSERT INTO minas (nombre, razon_social, ruc) VALUES (?, ?, ?)`,
             [nombre, razon_social, ruc]
@@ -36,6 +40,10 @@ const actualizarMina = async (req, res) => {
     try {
         const { id } = req.params;
         const { nombre, razon_social, ruc } = req.body;
+        
+        if (!nombre) {
+            return res.status(400).json({ mensaje: 'El nombre de la mina es obligatorio.' });
+        }
         
         const [resultado] = await db.query(
             `UPDATE minas SET nombre = ?, razon_social = ?, ruc = ? WHERE id = ?`,

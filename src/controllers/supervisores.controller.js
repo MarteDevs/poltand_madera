@@ -13,6 +13,8 @@ const getSupervisores = async (req, res) => {
 const crearSupervisor = async (req, res) => {
     try {
         const { nombre } = req.body;
+        if (!nombre) return res.status(400).json({ mensaje: 'El nombre es obligatorio.' });
+
         const [resultado] = await db.query(
             `INSERT INTO supervisor (nombre) VALUES (?)`,
             [nombre]
@@ -28,6 +30,8 @@ const actualizarSupervisor = async (req, res) => {
     try {
         const { id } = req.params;
         const { nombre } = req.body;
+        if (!nombre) return res.status(400).json({ mensaje: 'El nombre es obligatorio.' });
+
         const [resultado] = await db.query(
             `UPDATE supervisor SET nombre = ? WHERE id = ?`,
             [nombre, id]
