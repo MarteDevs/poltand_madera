@@ -130,7 +130,69 @@ const crearIngreso = async (req, res) => {
     }
 };
 
+// ==============================================================================
+// 3. HISTORIAL DE INGRESOS (Lista de todos los viajes registrados)
+// ==============================================================================
+const getHistorialIngresos = async (req, res) => {
+    try {
+        const query = `
+            SELECT 
+                i.id,
+                i.codigo_ingreso,
+                DATE_FORMAT(i.fecha, '%Y-%m-%d') AS fecha,
+                i.viaje,
+                i.vale,
+                i.observacion,
+                COUNT(ind.id) AS total_items,
+                COALESCE(SUM(ind.cantidad_entregada), 0) AS total_entregado
+            FROM ingresos i
+            LEFT JOIN ingresos_detalle ind ON ind.ingreso_id = i.id
+            GROUP BY i.id, i.codigo_ingreso, i.fecha, i.viaje, i.vale, i.observacion
+            ORDER BY i.fecha DESC, i.id DESC
+        `;
+        const [rows] = await db.query(query);
+        res.json(rows);
+    } catch (error) {
+        console.error('Error al obtener historial de ingresos:', error);
+        res.status(500).json({ mensaje: 'Error al obtener el historial de ingresos' });
+    }
+};
+
+// ==============================================================================
+// 4. DETALLE DE UN INGRESO ESPECÍFICO (Qué artículos llegaron en ese viaje)
+// ==============================================================================
+const getDetalleIngreso = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const query = `
+            SELECT
+                ind.id,
+                r.codigo_req,
+                a.nombre AS articulo,
+                p.nombre AS proveedor,
+                ind.cantidad_entregada
+            FROM ingresos_detalle ind
+            JOIN requerimientos_detalle rd ON rd.id = ind.requerimiento_detalle_id
+            JOIN requerimientos r ON r.id = rd.requerimiento_id
+            JOIN articulos a ON a.id = rd.articulo_id
+            JOIN proveedores p ON p.id = rd.proveedor_id
+            WHERE ind.ingreso_id = ?
+            ORDER BY r.codigo_req ASC
+        `;
+        const [rows] = await db.query(query, [id]);
+        if (rows.length === 0) {
+            return res.status(404).json({ mensaje: 'Ingreso no encontrado o sin detalles' });
+        }
+        res.json(rows);
+    } catch (error) {
+        console.error('Error al obtener detalle de ingreso:', error);
+        res.status(500).json({ mensaje: 'Error al obtener el detalle del ingreso' });
+    }
+};
+
 module.exports = {
     getRequerimientosPendientes,
-    crearIngreso
+    crearIngreso,
+    getHistorialIngresos,
+    getDetalleIngreso
 };
