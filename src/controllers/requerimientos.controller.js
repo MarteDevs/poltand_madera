@@ -19,7 +19,7 @@ const crearRequerimiento = async (req, res) => {
         // Buscamos el último ID insertado para crear el correlativo
         const [ultimoReq] = await conexion.query('SELECT id FROM requerimientos ORDER BY id DESC LIMIT 1');
         const nextId = ultimoReq.length > 0 ? ultimoReq[0].id + 1 : 1;
-        
+
         const fechaActual = new Date();
         const anioMesDia = `${fechaActual.getFullYear()}${(fechaActual.getMonth() + 1).toString().padStart(2, '0')}${fechaActual.getDate().toString().padStart(2, '0')}`;
         const correlativo = nextId.toString().padStart(4, '0');
@@ -71,6 +71,66 @@ const crearRequerimiento = async (req, res) => {
     }
 };
 
+// ==========================================
+// OBTENER HISTORIAL (Lista general de pedidos)
+// ==========================================
+const getHistorial = async (req, res) => {
+    try {
+        const query = `
+            SELECT 
+                r.id, 
+                r.codigo_req, 
+                DATE_FORMAT(r.fecha, '%Y-%m-%d') as fecha, 
+                m.nombre AS mina, 
+                COALESCE(s.nombre, 'Sin asignar') AS supervisor, 
+                r.estado
+            FROM requerimientos r
+            JOIN minas m ON r.mina_id = m.id
+            LEFT JOIN supervisor s ON r.supervisor_id = s.id
+            ORDER BY r.fecha DESC, r.id DESC
+        `;
+        const [rows] = await db.query(query);
+        res.json(rows);
+    } catch (error) {
+        console.error('Error al obtener historial:', error);
+        res.status(500).json({ mensaje: 'Error al obtener el historial' });
+    }
+};
+
+// ==========================================
+// OBTENER DETALLES DE UN REQUERIMIENTO (Con cálculo de faltante)
+// ==========================================
+const getDetalles = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const query = `
+            SELECT 
+                rd.id, 
+                a.nombre AS articulo, 
+                p.nombre AS proveedor, 
+                rd.cantidad AS pedido, 
+                COALESCE(SUM(ind.cantidad_entregada), 0) AS entregado,
+                (rd.cantidad - COALESCE(SUM(ind.cantidad_entregada), 0)) AS faltante
+            FROM requerimientos_detalle rd
+            JOIN articulos a ON rd.articulo_id = a.id
+            JOIN proveedores p ON rd.proveedor_id = p.id
+            LEFT JOIN ingresos_detalle ind ON ind.requerimiento_detalle_id = rd.id
+            WHERE rd.requerimiento_id = ?
+            GROUP BY rd.id, a.nombre, p.nombre, rd.cantidad
+        `;
+        const [rows] = await db.query(query, [id]);
+        res.json(rows);
+    } catch (error) {
+        console.error('Error al obtener detalles:', error);
+        res.status(500).json({ mensaje: 'Error al obtener los detalles' });
+    }
+};
+
+// Asegúrate de exportar estas nuevas funciones al final del archivo:
+// module.exports = { getHistorial, getDetalles, crearRequerimiento };
+
 module.exports = {
-    crearRequerimiento
+    crearRequerimiento,
+    getHistorial,
+    getDetalles
 };
