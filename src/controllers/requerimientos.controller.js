@@ -89,10 +89,14 @@ const getHistorial = async (req, res) => {
                 DATE_FORMAT(r.fecha, '%Y-%m-%d') as fecha, 
                 m.nombre AS mina, 
                 COALESCE(s.nombre, 'Sin asignar') AS supervisor, 
-                r.estado
+                r.estado,
+                COALESCE(SUM(rd.cantidad * rd.precio_proveedor), 0) AS total_proveedor,
+                COALESCE(SUM(rd.cantidad * rd.precio_mina), 0) AS total_mina
             FROM requerimientos r
             JOIN minas m ON r.mina_id = m.id
             LEFT JOIN supervisor s ON r.supervisor_id = s.id
+            LEFT JOIN requerimientos_detalle rd ON rd.requerimiento_id = r.id
+            GROUP BY r.id, r.codigo_req, r.fecha, m.nombre, s.nombre, r.estado
             ORDER BY r.fecha DESC, r.id DESC
         `;
         const [rows] = await db.query(query);
@@ -114,7 +118,9 @@ const getDetalles = async (req, res) => {
                 rd.id, 
                 a.nombre AS articulo, 
                 p.nombre AS proveedor, 
-                rd.cantidad AS pedido, 
+                rd.cantidad AS pedido,
+                rd.precio_proveedor,
+                rd.precio_mina,
                 COALESCE(SUM(ind.cantidad_entregada), 0) AS entregado,
                 (rd.cantidad - COALESCE(SUM(ind.cantidad_entregada), 0)) AS faltante
             FROM requerimientos_detalle rd
@@ -122,7 +128,7 @@ const getDetalles = async (req, res) => {
             JOIN proveedores p ON rd.proveedor_id = p.id
             LEFT JOIN ingresos_detalle ind ON ind.requerimiento_detalle_id = rd.id
             WHERE rd.requerimiento_id = ?
-            GROUP BY rd.id, a.nombre, p.nombre, rd.cantidad
+            GROUP BY rd.id, a.nombre, p.nombre, rd.cantidad, rd.precio_proveedor, rd.precio_mina
         `;
         const [rows] = await db.query(query, [id]);
         res.json(rows);
