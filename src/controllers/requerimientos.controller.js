@@ -15,15 +15,21 @@ const crearRequerimiento = async (req, res) => {
         // 1. INICIAR TRANSACCIÓN (Si algo falla de aquí en adelante, nada se guarda)
         await conexion.beginTransaction();
 
-        // 2. Generar el CODIGO_REQ (Ejemplo: REQ-20260403-0001)
-        // Buscamos el último ID insertado para crear el correlativo
-        const [ultimoReq] = await conexion.query('SELECT id FROM requerimientos ORDER BY id DESC LIMIT 1');
-        const nextId = ultimoReq.length > 0 ? ultimoReq[0].id + 1 : 1;
-
+        // 2. Generar el CODIGO_REQ → formato: REQ-{mes}-{correlativo_mensual}
+        // El correlativo se reinicia cada mes (REQ-3-001, REQ-3-002 ... REQ-4-001, REQ-4-002...)
         const fechaActual = new Date();
-        const anioMesDia = `${fechaActual.getFullYear()}${(fechaActual.getMonth() + 1).toString().padStart(2, '0')}${fechaActual.getDate().toString().padStart(2, '0')}`;
-        const correlativo = nextId.toString().padStart(4, '0');
-        const codigo_req = `REQ-${anioMesDia}-${correlativo}`;
+        const mesActual = fechaActual.getMonth() + 1; // 1-12
+
+        // Contamos cuántos requerimientos existen en el mes y año actual
+        const [reqsDelMes] = await conexion.query(
+            `SELECT COUNT(*) AS total 
+             FROM requerimientos 
+             WHERE MONTH(created_at) = ? AND YEAR(created_at) = ?`,
+            [mesActual, fechaActual.getFullYear()]
+        );
+        const nextCorrelativo = (reqsDelMes[0].total + 1);
+        const correlativo = nextCorrelativo.toString().padStart(3, '0');
+        const codigo_req = `REQ-${mesActual}-${correlativo}`;
 
         // 3. Insertar la CABECERA
         const [resultadoCabecera] = await conexion.query(
