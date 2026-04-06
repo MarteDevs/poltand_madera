@@ -141,8 +141,50 @@ const getDetalles = async (req, res) => {
 // Asegúrate de exportar estas nuevas funciones al final del archivo:
 // module.exports = { getHistorial, getDetalles, crearRequerimiento };
 
+// ==========================================
+// OBTENER HISTORIAL DETALLADO (Todos los requerimientos con sus líneas de detalle)
+// ==========================================
+const getHistorialDetallado = async (req, res) => {
+    try {
+        const query = `
+            SELECT 
+                r.codigo_req, 
+                DATE_FORMAT(r.fecha, '%Y-%m-%d') as fecha, 
+                m.nombre AS mina, 
+                COALESCE(s.nombre, 'Sin asignar') AS supervisor, 
+                r.estado,
+                a.nombre AS articulo, 
+                p.nombre AS proveedor, 
+                rd.cantidad AS pedido,
+                COALESCE(SUM(ind.cantidad_entregada), 0) AS entregado,
+                (rd.cantidad - COALESCE(SUM(ind.cantidad_entregada), 0)) AS faltante,
+                rd.precio_proveedor,
+                rd.precio_mina,
+                (rd.cantidad * rd.precio_proveedor) AS total_proveedor_linea,
+                (rd.cantidad * rd.precio_mina) AS total_mina_linea
+            FROM requerimientos r
+            JOIN minas m ON r.mina_id = m.id
+            LEFT JOIN supervisor s ON r.supervisor_id = s.id
+            JOIN requerimientos_detalle rd ON rd.requerimiento_id = r.id
+            JOIN articulos a ON rd.articulo_id = a.id
+            JOIN proveedores p ON rd.proveedor_id = p.id
+            LEFT JOIN ingresos_detalle ind ON ind.requerimiento_detalle_id = rd.id
+            GROUP BY 
+                r.id, r.codigo_req, r.fecha, m.nombre, s.nombre, r.estado,
+                rd.id, a.nombre, p.nombre, rd.cantidad, rd.precio_proveedor, rd.precio_mina
+            ORDER BY r.fecha DESC, r.codigo_req DESC, a.nombre ASC
+        `;
+        const [rows] = await db.query(query);
+        res.json(rows);
+    } catch (error) {
+        console.error('Error al obtener historial detallado:', error);
+        res.status(500).json({ mensaje: 'Error al obtener el historial detallado' });
+    }
+};
+
 module.exports = {
     crearRequerimiento,
     getHistorial,
-    getDetalles
+    getDetalles,
+    getHistorialDetallado
 };
