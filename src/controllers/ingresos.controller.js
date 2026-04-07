@@ -10,6 +10,7 @@ const getRequerimientosPendientes = async (req, res) => {
             SELECT 
                 rd.id AS requerimiento_detalle_id,
                 r.codigo_req,
+                m.nombre AS mina,
                 a.nombre AS articulo,
                 p.nombre AS proveedor,
                 rd.cantidad AS pedido,
@@ -17,6 +18,7 @@ const getRequerimientosPendientes = async (req, res) => {
                 (rd.cantidad - COALESCE(SUM(ind.cantidad_entregada), 0)) AS faltante
             FROM requerimientos_detalle rd
             JOIN requerimientos r ON rd.requerimiento_id = r.id
+            JOIN minas m ON r.mina_id = m.id
             JOIN articulos a ON rd.articulo_id = a.id
             JOIN proveedores p ON rd.proveedor_id = p.id
             LEFT JOIN ingresos_detalle ind ON ind.requerimiento_detalle_id = rd.id
@@ -24,6 +26,7 @@ const getRequerimientosPendientes = async (req, res) => {
             GROUP BY 
                 rd.id, 
                 r.codigo_req, 
+                m.nombre,
                 a.nombre, 
                 p.nombre, 
                 rd.cantidad
