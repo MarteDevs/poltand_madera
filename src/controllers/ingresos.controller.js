@@ -170,7 +170,11 @@ const getDetalleIngreso = async (req, res) => {
                 r.codigo_req,
                 a.nombre AS articulo,
                 p.nombre AS proveedor,
-                ind.cantidad_entregada
+                ind.cantidad_entregada,
+                rd.cantidad AS pedido,
+                rd.precio_proveedor,
+                rd.precio_mina,
+                (SELECT COALESCE(SUM(cantidad_entregada), 0) FROM ingresos_detalle WHERE requerimiento_detalle_id = rd.id) AS entregado_total
             FROM ingresos_detalle ind
             JOIN requerimientos_detalle rd ON rd.id = ind.requerimiento_detalle_id
             JOIN requerimientos r ON r.id = rd.requerimiento_id
