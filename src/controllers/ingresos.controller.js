@@ -28,7 +28,7 @@ const getRequerimientosPendientes = async (req, res) => {
                 p.nombre, 
                 rd.cantidad
             HAVING faltante > 0
-            ORDER BY r.codigo_req ASC;
+            ORDER BY r.codigo_req DESC, rd.id ASC;
         `;
         
         const [rows] = await db.query(query);
