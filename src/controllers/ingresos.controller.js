@@ -197,9 +197,49 @@ const getDetalleIngreso = async (req, res) => {
     }
 };
 
+// ==============================================================================
+// 5. HISTORIAL DE INGRESOS DETALLADO (Para Excel)
+// ==============================================================================
+const getHistorialIngresosDetallado = async (req, res) => {
+    try {
+        const query = `
+            SELECT 
+                i.codigo_ingreso,
+                DATE_FORMAT(i.fecha, '%Y-%m-%d') AS fecha_ingreso,
+                i.viaje,
+                i.vale,
+                i.observacion,
+                r.codigo_req,
+                m.nombre AS mina,
+                a.nombre AS articulo,
+                p.nombre AS proveedor,
+                rd.precio_proveedor,
+                rd.precio_mina,
+                rd.cantidad AS pedido,
+                ind.cantidad_entregada,
+                (SELECT COALESCE(SUM(cantidad_entregada), 0) FROM ingresos_detalle WHERE requerimiento_detalle_id = rd.id) AS entregado_total,
+                (rd.cantidad - (SELECT COALESCE(SUM(cantidad_entregada), 0) FROM ingresos_detalle WHERE requerimiento_detalle_id = rd.id)) AS faltante
+            FROM ingresos i
+            JOIN ingresos_detalle ind ON ind.ingreso_id = i.id
+            JOIN requerimientos_detalle rd ON rd.id = ind.requerimiento_detalle_id
+            JOIN requerimientos r ON r.id = rd.requerimiento_id
+            LEFT JOIN minas m ON m.id = r.mina_id
+            JOIN articulos a ON a.id = rd.articulo_id
+            JOIN proveedores p ON p.id = rd.proveedor_id
+            ORDER BY i.fecha DESC, i.id DESC, r.codigo_req ASC
+        `;
+        const [rows] = await db.query(query);
+        res.json(rows);
+    } catch (error) {
+        console.error('Error al obtener historial detallado:', error);
+        res.status(500).json({ mensaje: 'Error al obtener el historial detallado' });
+    }
+};
+
 module.exports = {
     getRequerimientosPendientes,
     crearIngreso,
     getHistorialIngresos,
-    getDetalleIngreso
+    getDetalleIngreso,
+    getHistorialIngresosDetallado
 };
