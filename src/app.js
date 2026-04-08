@@ -79,6 +79,7 @@ app.use('/api/articulos', require('./routes/articulos.routes'));
 app.use('/api/minas', require('./routes/minas.routes'));
 app.use('/api/proveedores', require('./routes/proveedores.routes'));
 app.use('/api/supervisores', require('./routes/supervisores.routes'));
+app.use('/api/usuarios', require('./routes/usuarios.routes'));
 
 
 
