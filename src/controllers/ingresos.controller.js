@@ -62,8 +62,13 @@ const crearIngreso = async (req, res) => {
         const anioMesDia = `${fechaActual.getFullYear()}${(fechaActual.getMonth() + 1).toString().padStart(2, '0')}${fechaActual.getDate().toString().padStart(2, '0')}`;
         const viajeLimpio = viaje ? viaje.replace(/\s+/g, '-').toUpperCase() : 'SV'; // SV = Sin Viaje
         
-        // Agregamos un correlativo aleatorio o timestamp para asegurar que sea único si hay varios viajes iguales al día
-        const correlativo = Math.floor(1000 + Math.random() * 9000); 
+        // Correlativo secuencial basado en ingresos del mismo día
+        const [ingresosHoy] = await conexion.query(
+            `SELECT COUNT(*) AS total FROM ingresos WHERE DATE(fecha) = ?`,
+            [fecha]
+        );
+        const nextCorrelativo = (ingresosHoy[0].total + 1);
+        const correlativo = nextCorrelativo.toString().padStart(3, '0');
         const codigo_ingreso = `ENT-${anioMesDia}-${viajeLimpio}-${correlativo}`;
 
         // 2. Insertar CABECERA del ingreso

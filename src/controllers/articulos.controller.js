@@ -1,65 +1,45 @@
-const db = require('../config/db');
+const articulosService = require('../services/articulos.service');
 
-const getArticulos = async (req, res) => {
+const getArticulos = async (req, res, next) => {
     try {
-        const [rows] = await db.query('SELECT * FROM articulos WHERE estado = 1 ORDER BY nombre ASC');
+        const rows = await articulosService.getAll();
         res.json(rows);
     } catch (error) {
-        console.error('Error al obtener artículos:', error);
-        res.status(500).json({ mensaje: 'Error al obtener los artículos' });
+        next(error);
     }
 };
 
-const crearArticulo = async (req, res) => {
+const crearArticulo = async (req, res, next) => {
     try {
         const { codigo, nombre, precio_proveedor, precio_mina } = req.body;
-        
-        if (!nombre || precio_proveedor === undefined || precio_mina === undefined) {
-            return res.status(400).json({ mensaje: 'El nombre y los precios son obligatorios.' });
-        }
-
-        const [resultado] = await db.query(
-            `INSERT INTO articulos (codigo, nombre, precio_proveedor, precio_mina) VALUES (?, ?, ?, ?)`,
-            [codigo, nombre, precio_proveedor, precio_mina]
-        );
-        res.status(201).json({ mensaje: 'Artículo creado', id: resultado.insertId });
+        const id = await articulosService.create({ codigo, nombre, precio_proveedor, precio_mina });
+        res.status(201).json({ mensaje: 'Artículo creado', id });
     } catch (error) {
-        console.error('Error al crear artículo:', error);
-        if (error.code === 'ER_DUP_ENTRY') return res.status(400).json({ mensaje: 'El código ya existe' });
-        res.status(500).json({ mensaje: 'Error al crear el artículo' });
+        if (error.code === 'ER_DUP_ENTRY') {
+            return res.status(400).json({ mensaje: 'El código de artículo ya existe' });
+        }
+        next(error);
     }
 };
 
-const actualizarArticulo = async (req, res) => {
+const actualizarArticulo = async (req, res, next) => {
     try {
         const { id } = req.params;
         const { codigo, nombre, precio_proveedor, precio_mina } = req.body;
-        
-        if (!nombre || precio_proveedor === undefined || precio_mina === undefined) {
-            return res.status(400).json({ mensaje: 'El nombre y los precios son obligatorios.' });
-        }
-
-        const [resultado] = await db.query(
-            `UPDATE articulos SET codigo = ?, nombre = ?, precio_proveedor = ?, precio_mina = ? WHERE id = ?`,
-            [codigo, nombre, precio_proveedor, precio_mina, id]
-        );
-        if (resultado.affectedRows === 0) return res.status(404).json({ mensaje: 'No encontrado' });
+        await articulosService.update(id, { codigo, nombre, precio_proveedor, precio_mina });
         res.json({ mensaje: 'Artículo actualizado' });
     } catch (error) {
-        console.error('Error al actualizar artículo:', error);
-        res.status(500).json({ mensaje: 'Error al actualizar' });
+        next(error);
     }
 };
 
-const desactivarArticulo = async (req, res) => {
+const desactivarArticulo = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const [resultado] = await db.query(`UPDATE articulos SET estado = 0 WHERE id = ?`, [id]);
-        if (resultado.affectedRows === 0) return res.status(404).json({ mensaje: 'No encontrado' });
+        await articulosService.softDelete(id);
         res.json({ mensaje: 'Artículo desactivado' });
     } catch (error) {
-        console.error('Error al desactivar artículo:', error);
-        res.status(500).json({ mensaje: 'Error al desactivar' });
+        next(error);
     }
 };
 

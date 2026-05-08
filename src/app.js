@@ -81,14 +81,18 @@ app.use('/api/proveedores', require('./routes/proveedores.routes'));
 app.use('/api/supervisores', require('./routes/supervisores.routes'));
 app.use('/api/usuarios', require('./routes/usuarios.routes'));
 
-
-
 // OPERACIONES
 // RUTAS DE REQUERIMIENTOS (Protegidas)
 app.use('/api/requerimientos', require('./routes/requerimientos.routes'));
 
 // RUTAS DE INGRESOS (Protegidas)
 app.use('/api/ingresos', require('./routes/ingresos.routes'));
+
+// =====================================
+// 🛡️ MANEJO DE ERRORES (Al final)
+// =====================================
+const { errorHandler } = require('./middleware/error.middleware');
+app.use(errorHandler);
 // ...
 // Encender el servidor
 const PORT = process.env.PORT || 3000;
