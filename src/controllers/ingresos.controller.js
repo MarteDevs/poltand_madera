@@ -22,7 +22,7 @@ const getRequerimientosPendientes = async (req, res) => {
             JOIN articulos a ON rd.articulo_id = a.id
             JOIN proveedores p ON rd.proveedor_id = p.id
             LEFT JOIN ingresos_detalle ind ON ind.requerimiento_detalle_id = rd.id
-            WHERE r.estado = 'PENDIENTE'
+            WHERE r.estado IN ('PENDIENTE', 'PARCIAL')
             GROUP BY 
                 rd.id, 
                 r.codigo_req, 
