@@ -81,44 +81,72 @@ const crearIngreso = async (req, res) => {
 
         // 3. Insertar DETALLES de la entrega
         for (const item of detalles) {
-            await conexion.query(
-                `INSERT INTO ingresos_detalle (ingreso_id, requerimiento_detalle_id, cantidad_entregada) 
-                 VALUES (?, ?, ?)`,
-                [ingreso_id, item.requerimiento_detalle_id, item.cantidad_entregada]
-            );
+            if (item.requerimiento_detalle_id) {
+                // ITEM NORMAL (Con Requerimiento)
+                await conexion.query(
+                    `INSERT INTO ingresos_detalle (ingreso_id, requerimiento_detalle_id, cantidad_entregada, es_extra) 
+                     VALUES (?, ?, ?, 0)`,
+                    [ingreso_id, item.requerimiento_detalle_id, item.cantidad_entregada]
+                );
+            } else {
+                // ITEM EXTRA (Sin Requerimiento)
+                await conexion.query(
+                    `INSERT INTO ingresos_detalle 
+                     (ingreso_id, articulo_id, proveedor_id, mina_id, cantidad_entregada, precio_proveedor, precio_mina, es_extra) 
+                     VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
+                    [
+                        ingreso_id, 
+                        item.articulo_id, 
+                        item.proveedor_id, 
+                        item.mina_id, 
+                        item.cantidad_entregada, 
+                        item.precio_proveedor, 
+                        item.precio_mina
+                    ]
+                );
+            }
         }
 
         // ======================================================================
         // 4. MAGIA: ACTUALIZAR ESTADO DEL REQUERIMIENTO (¿Ya se completó?)
         // ======================================================================
         
-        // A. Extraemos todos los IDs de los detalles de requerimiento afectados
-        const reqDetIds = detalles.map(d => d.requerimiento_detalle_id);
+        // A. Extraemos solo los IDs de los detalles de requerimiento REALES (no nulos)
+        const reqDetIds = detalles
+            .map(d => d.requerimiento_detalle_id)
+            .filter(id => id != null);
         
-        // B. Buscamos a qué "Cabeceras de Requerimiento" pertenecen esos detalles
-        const [reqsAfectados] = await conexion.query(
-            `SELECT DISTINCT requerimiento_id FROM requerimientos_detalle WHERE id IN (?)`, 
-            [reqDetIds]
-        );
+        if (reqDetIds.length > 0) {
+            // B. Buscamos a qué "Cabeceras de Requerimiento" pertenecen esos detalles
+            const [reqsAfectados] = await conexion.query(
+                `SELECT DISTINCT requerimiento_id FROM requerimientos_detalle WHERE id IN (?)`, 
+                [reqDetIds]
+            );
 
-        // C. Por cada requerimiento afectado, verificamos si aún tiene faltantes
-        for (const r of reqsAfectados) {
-            const [verificacion] = await conexion.query(`
-                SELECT (rd.cantidad - COALESCE(SUM(ind.cantidad_entregada), 0)) AS faltante
-                FROM requerimientos_detalle rd
-                LEFT JOIN ingresos_detalle ind ON ind.requerimiento_detalle_id = rd.id
-                WHERE rd.requerimiento_id = ?
-                GROUP BY rd.id, rd.cantidad
-                HAVING faltante > 0
-            `, [r.requerimiento_id]);
+            // C. Por cada requerimiento afectado, verificamos si aún tiene faltantes
+            for (const r of reqsAfectados) {
+                const [verificacion] = await conexion.query(`
+                    SELECT (rd.cantidad - COALESCE(SUM(ind.cantidad_entregada), 0)) AS faltante
+                    FROM requerimientos_detalle rd
+                    LEFT JOIN ingresos_detalle ind ON ind.requerimiento_detalle_id = rd.id
+                    WHERE rd.requerimiento_id = ?
+                    GROUP BY rd.id, rd.cantidad
+                    HAVING faltante > 0
+                `, [r.requerimiento_id]);
 
-            // Si el resultado viene vacío (length === 0), significa que no hay NINGÚN faltante en NINGUNA línea.
-            if (verificacion.length === 0) {
-                // ¡Se completó el pedido! Lo actualizamos a COMPLETADO
-                await conexion.query(
-                    `UPDATE requerimientos SET estado = 'COMPLETADO' WHERE id = ?`, 
-                    [r.requerimiento_id]
-                );
+                // Si el resultado viene vacío (length === 0), significa que no hay NINGÚN faltante en NINGUNA línea.
+                if (verificacion.length === 0) {
+                    await conexion.query(
+                        `UPDATE requerimientos SET estado = 'COMPLETADO' WHERE id = ?`, 
+                        [r.requerimiento_id]
+                    );
+                } else {
+                    // Si hay faltantes pero hubo entrega, es PARCIAL
+                    await conexion.query(
+                        `UPDATE requerimientos SET estado = 'PARCIAL' WHERE id = ?`, 
+                        [r.requerimiento_id]
+                    );
+                }
             }
         }
 
@@ -175,21 +203,24 @@ const getDetalleIngreso = async (req, res) => {
         const query = `
             SELECT
                 ind.id,
-                r.codigo_req,
-                a.nombre AS articulo,
-                p.nombre AS proveedor,
+                COALESCE(r.codigo_req, 'EXTRA') AS codigo_req,
+                COALESCE(a.nombre, a_extra.nombre) AS articulo,
+                COALESCE(p.nombre, p_extra.nombre) AS proveedor,
                 ind.cantidad_entregada,
-                rd.cantidad AS pedido,
-                rd.precio_proveedor,
-                rd.precio_mina,
-                (SELECT COALESCE(SUM(cantidad_entregada), 0) FROM ingresos_detalle WHERE requerimiento_detalle_id = rd.id) AS entregado_total
+                COALESCE(rd.cantidad, 0) AS pedido,
+                COALESCE(rd.precio_proveedor, ind.precio_proveedor) AS precio_proveedor,
+                COALESCE(rd.precio_mina, ind.precio_mina) AS precio_mina,
+                ind.es_extra,
+                (SELECT COALESCE(SUM(cantidad_entregada), 0) FROM ingresos_detalle WHERE requerimiento_detalle_id = rd.id AND rd.id IS NOT NULL) AS entregado_total
             FROM ingresos_detalle ind
-            JOIN requerimientos_detalle rd ON rd.id = ind.requerimiento_detalle_id
-            JOIN requerimientos r ON r.id = rd.requerimiento_id
-            JOIN articulos a ON a.id = rd.articulo_id
-            JOIN proveedores p ON p.id = rd.proveedor_id
+            LEFT JOIN requerimientos_detalle rd ON rd.id = ind.requerimiento_detalle_id
+            LEFT JOIN requerimientos r ON r.id = rd.requerimiento_id
+            LEFT JOIN articulos a ON a.id = rd.articulo_id
+            LEFT JOIN proveedores p ON p.id = rd.proveedor_id
+            LEFT JOIN articulos a_extra ON a_extra.id = ind.articulo_id
+            LEFT JOIN proveedores p_extra ON p_extra.id = ind.proveedor_id
             WHERE ind.ingreso_id = ?
-            ORDER BY r.codigo_req ASC
+            ORDER BY ind.es_extra ASC, r.codigo_req ASC
         `;
         const [rows] = await db.query(query, [id]);
         if (rows.length === 0) {
@@ -214,23 +245,27 @@ const getHistorialIngresosDetallado = async (req, res) => {
                 i.viaje,
                 i.vale,
                 i.observacion,
-                r.codigo_req,
-                m.nombre AS mina,
-                a.nombre AS articulo,
-                p.nombre AS proveedor,
-                rd.precio_proveedor,
-                rd.precio_mina,
-                rd.cantidad AS pedido,
+                COALESCE(r.codigo_req, 'EXTRA') AS codigo_req,
+                COALESCE(m.nombre, m_extra.nombre) AS mina,
+                COALESCE(a.nombre, a_extra.nombre) AS articulo,
+                COALESCE(p.nombre, p_extra.nombre) AS proveedor,
+                COALESCE(rd.precio_proveedor, ind.precio_proveedor) AS precio_proveedor,
+                COALESCE(rd.precio_mina, ind.precio_mina) AS precio_mina,
+                COALESCE(rd.cantidad, 0) AS pedido,
                 ind.cantidad_entregada,
-                (SELECT COALESCE(SUM(cantidad_entregada), 0) FROM ingresos_detalle WHERE requerimiento_detalle_id = rd.id) AS entregado_total,
-                (rd.cantidad - (SELECT COALESCE(SUM(cantidad_entregada), 0) FROM ingresos_detalle WHERE requerimiento_detalle_id = rd.id)) AS faltante
+                ind.es_extra,
+                (SELECT COALESCE(SUM(cantidad_entregada), 0) FROM ingresos_detalle WHERE requerimiento_detalle_id = rd.id AND rd.id IS NOT NULL) AS entregado_total,
+                (COALESCE(rd.cantidad, 0) - (SELECT COALESCE(SUM(cantidad_entregada), 0) FROM ingresos_detalle WHERE requerimiento_detalle_id = rd.id AND rd.id IS NOT NULL)) AS faltante
             FROM ingresos i
             JOIN ingresos_detalle ind ON ind.ingreso_id = i.id
-            JOIN requerimientos_detalle rd ON rd.id = ind.requerimiento_detalle_id
-            JOIN requerimientos r ON r.id = rd.requerimiento_id
+            LEFT JOIN requerimientos_detalle rd ON rd.id = ind.requerimiento_detalle_id
+            LEFT JOIN requerimientos r ON r.id = rd.requerimiento_id
             LEFT JOIN minas m ON m.id = r.mina_id
-            JOIN articulos a ON a.id = rd.articulo_id
-            JOIN proveedores p ON p.id = rd.proveedor_id
+            LEFT JOIN articulos a ON a.id = rd.articulo_id
+            LEFT JOIN proveedores p ON p.id = rd.proveedor_id
+            LEFT JOIN minas m_extra ON m_extra.id = ind.mina_id
+            LEFT JOIN articulos a_extra ON a_extra.id = ind.articulo_id
+            LEFT JOIN proveedores p_extra ON p_extra.id = ind.proveedor_id
             ORDER BY i.fecha DESC, i.id DESC, r.codigo_req ASC
         `;
         const [rows] = await db.query(query);
