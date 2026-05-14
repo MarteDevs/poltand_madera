@@ -5,19 +5,33 @@ class RequerimientosService {
      * Genera un código de requerimiento secuencial para el mes actual
      * Formato: REQ-{mes}-{correlativo}
      */
-    async generarCodigo(conexion) {
-        const ahora = new Date();
-        const mesActual = ahora.getMonth() + 1;
-        const anioActual = ahora.getFullYear();
+    async generarCodigo(conexion, fechaInput) {
+        const fechaObj = new Date(fechaInput || Date.now());
+        const mesActual = fechaObj.getMonth() + 1;
+
+        const prefix = `REQ-${mesActual}-`;
 
         const [rows] = await conexion.query(
-            `SELECT COUNT(*) as total FROM requerimientos 
-             WHERE MONTH(fecha) = ? AND YEAR(fecha) = ?`,
-            [mesActual, anioActual]
+            `SELECT codigo_req FROM requerimientos 
+             WHERE codigo_req LIKE ?
+             ORDER BY LENGTH(codigo_req) DESC, codigo_req DESC LIMIT 1`,
+            [`${prefix}%`]
         );
         
-        const correlativo = (rows[0].total + 1).toString().padStart(3, '0');
-        return `REQ-${mesActual}-${correlativo}`;
+        let siguienteCorrelativo = 1;
+        if (rows.length > 0) {
+            const ultimoCodigo = rows[0].codigo_req;
+            const partes = ultimoCodigo.split('-');
+            if (partes.length === 3) {
+                const ultimoNumero = parseInt(partes[2], 10);
+                if (!isNaN(ultimoNumero)) {
+                    siguienteCorrelativo = ultimoNumero + 1;
+                }
+            }
+        }
+        
+        const correlativo = siguienteCorrelativo.toString().padStart(3, '0');
+        return `${prefix}${correlativo}`;
     }
 
     /**
@@ -29,7 +43,7 @@ class RequerimientosService {
             await conexion.beginTransaction();
 
             const { fecha, mina_id, supervisor_id, detalles } = data;
-            const codigo_req = await this.generarCodigo(conexion);
+            const codigo_req = await this.generarCodigo(conexion, fecha);
 
             // 1. Insertar cabecera
             const [result] = await conexion.query(

@@ -9,6 +9,9 @@ require('dotenv').config();
 // Inicializar express
 const app = express();
 
+// Confiar en el proxy (Ej: Nginx) para que express-rate-limit funcione correctamente con la cabecera X-Forwarded-For
+app.set('trust proxy', 1);
+
 // =====================================
 // 🛡️ SEGURIDAD BASE (Producción)
 // =====================================
