@@ -203,6 +203,10 @@ const getDetalleIngreso = async (req, res) => {
         const query = `
             SELECT
                 ind.id,
+                ind.requerimiento_detalle_id,
+                ind.articulo_id,
+                ind.proveedor_id,
+                ind.mina_id,
                 COALESCE(r.codigo_req, 'EXTRA') AS codigo_req,
                 COALESCE(a.nombre, a_extra.nombre) AS articulo,
                 COALESCE(p.nombre, p_extra.nombre) AS proveedor,
@@ -276,10 +280,202 @@ const getHistorialIngresosDetallado = async (req, res) => {
     }
 };
 
+// ==============================================================================
+// 6. ELIMINAR INGRESO
+// ==============================================================================
+const eliminarIngreso = async (req, res) => {
+    const conexion = await db.getConnection();
+    try {
+        const { id } = req.params;
+
+        await conexion.beginTransaction();
+
+        // 1. Identificar requerimientos afectados ANTES de borrar el ingreso
+        const [reqsAfectados] = await conexion.query(`
+            SELECT DISTINCT rd.requerimiento_id 
+            FROM ingresos_detalle ind
+            JOIN requerimientos_detalle rd ON ind.requerimiento_detalle_id = rd.id
+            WHERE ind.ingreso_id = ?
+        `, [id]);
+
+        // 2. Eliminar el ingreso (los detalles se borran en cascada por la FK)
+        const [result] = await conexion.query('DELETE FROM ingresos WHERE id = ?', [id]);
+        
+        if (result.affectedRows === 0) {
+            await conexion.rollback();
+            return res.status(404).json({ mensaje: 'Ingreso no encontrado' });
+        }
+
+        // 3. Recalcular el estado de los requerimientos afectados
+        if (reqsAfectados.length > 0) {
+            for (const r of reqsAfectados) {
+                const [verificacion] = await conexion.query(`
+                    SELECT (rd.cantidad - COALESCE(SUM(ind.cantidad_entregada), 0)) AS faltante
+                    FROM requerimientos_detalle rd
+                    LEFT JOIN ingresos_detalle ind ON ind.requerimiento_detalle_id = rd.id
+                    WHERE rd.requerimiento_id = ?
+                    GROUP BY rd.id, rd.cantidad
+                    HAVING faltante > 0
+                `, [r.requerimiento_id]);
+
+                // Si hay lineas con faltante > 0
+                if (verificacion.length > 0) {
+                    // Verificamos si tiene ALGO entregado para saber si es PARCIAL o PENDIENTE
+                    const [entregas] = await conexion.query(`
+                        SELECT COALESCE(SUM(ind.cantidad_entregada), 0) AS total_entregado
+                        FROM requerimientos_detalle rd
+                        LEFT JOIN ingresos_detalle ind ON ind.requerimiento_detalle_id = rd.id
+                        WHERE rd.requerimiento_id = ?
+                    `, [r.requerimiento_id]);
+
+                    if (entregas[0].total_entregado > 0) {
+                        await conexion.query(`UPDATE requerimientos SET estado = 'PARCIAL' WHERE id = ?`, [r.requerimiento_id]);
+                    } else {
+                        await conexion.query(`UPDATE requerimientos SET estado = 'PENDIENTE' WHERE id = ?`, [r.requerimiento_id]);
+                    }
+                } else {
+                    await conexion.query(`UPDATE requerimientos SET estado = 'COMPLETADO' WHERE id = ?`, [r.requerimiento_id]);
+                }
+            }
+        }
+
+        await conexion.commit();
+        res.json({ mensaje: 'Ingreso eliminado correctamente. Saldos actualizados.' });
+
+    } catch (error) {
+        await conexion.rollback();
+        console.error('Error al eliminar ingreso:', error);
+        res.status(500).json({ mensaje: 'Error al eliminar el ingreso' });
+    } finally {
+        conexion.release();
+    }
+};
+
+// ==============================================================================
+// 7. ACTUALIZAR (EDITAR) INGRESO
+// ==============================================================================
+const actualizarIngreso = async (req, res) => {
+    const conexion = await db.getConnection();
+    try {
+        const { id } = req.params;
+        const { fecha, viaje, vale, observacion, detalles } = req.body;
+
+        if (!detalles || detalles.length === 0) {
+            return res.status(400).json({ mensaje: 'El ingreso debe tener al menos un artículo entregado.' });
+        }
+
+        await conexion.beginTransaction();
+
+        // 1. Obtener requerimientos afectados por los detalles ACTUALES (antes de borrar)
+        const [reqsAfectadosViejos] = await conexion.query(`
+            SELECT DISTINCT rd.requerimiento_id 
+            FROM ingresos_detalle ind
+            JOIN requerimientos_detalle rd ON ind.requerimiento_detalle_id = rd.id
+            WHERE ind.ingreso_id = ?
+        `, [id]);
+
+        // 2. Actualizar cabecera
+        await conexion.query(
+            `UPDATE ingresos SET fecha = ?, viaje = ?, vale = ?, observacion = ? WHERE id = ?`,
+            [fecha, viaje, vale, observacion, id]
+        );
+
+        // 3. Borrar detalles actuales (lo más fácil para reconstruir todo con o sin extras)
+        await conexion.query(`DELETE FROM ingresos_detalle WHERE ingreso_id = ?`, [id]);
+
+        // 4. Insertar los NUEVOS detalles
+        for (const item of detalles) {
+            if (item.requerimiento_detalle_id) {
+                // Normal
+                await conexion.query(
+                    `INSERT INTO ingresos_detalle (ingreso_id, requerimiento_detalle_id, cantidad_entregada, es_extra) 
+                     VALUES (?, ?, ?, 0)`,
+                    [id, item.requerimiento_detalle_id, item.cantidad_entregada]
+                );
+            } else {
+                // Extra
+                await conexion.query(
+                    `INSERT INTO ingresos_detalle 
+                     (ingreso_id, articulo_id, proveedor_id, mina_id, cantidad_entregada, precio_proveedor, precio_mina, es_extra) 
+                     VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
+                    [
+                        id, 
+                        item.articulo_id, 
+                        item.proveedor_id, 
+                        item.mina_id, 
+                        item.cantidad_entregada, 
+                        item.precio_proveedor, 
+                        item.precio_mina
+                    ]
+                );
+            }
+        }
+
+        // 5. Obtener requerimientos afectados por los NUEVOS detalles
+        const reqDetIdsNuevos = detalles.map(d => d.requerimiento_detalle_id).filter(i => i != null);
+        let reqsAfectadosNuevos = [];
+        if (reqDetIdsNuevos.length > 0) {
+            const [rows] = await conexion.query(
+                `SELECT DISTINCT requerimiento_id FROM requerimientos_detalle WHERE id IN (?)`, 
+                [reqDetIdsNuevos]
+            );
+            reqsAfectadosNuevos = rows;
+        }
+
+        // 6. Unir todos los IDs de requerimientos afectados (viejos y nuevos) para recalcular
+        const todosLosReqs = new Set([
+            ...reqsAfectadosViejos.map(r => r.requerimiento_id),
+            ...reqsAfectadosNuevos.map(r => r.requerimiento_id)
+        ]);
+
+        // 7. Recalcular estado de cada requerimiento afectado
+        for (const reqId of todosLosReqs) {
+            const [verificacion] = await conexion.query(`
+                SELECT (rd.cantidad - COALESCE(SUM(ind.cantidad_entregada), 0)) AS faltante
+                FROM requerimientos_detalle rd
+                LEFT JOIN ingresos_detalle ind ON ind.requerimiento_detalle_id = rd.id
+                WHERE rd.requerimiento_id = ?
+                GROUP BY rd.id, rd.cantidad
+                HAVING faltante > 0
+            `, [reqId]);
+
+            if (verificacion.length > 0) {
+                // Verificamos si tiene ALGO entregado para saber si es PARCIAL o PENDIENTE
+                const [entregas] = await conexion.query(`
+                    SELECT COALESCE(SUM(ind.cantidad_entregada), 0) AS total_entregado
+                    FROM requerimientos_detalle rd
+                    LEFT JOIN ingresos_detalle ind ON ind.requerimiento_detalle_id = rd.id
+                    WHERE rd.requerimiento_id = ?
+                `, [reqId]);
+
+                if (entregas[0].total_entregado > 0) {
+                    await conexion.query(`UPDATE requerimientos SET estado = 'PARCIAL' WHERE id = ?`, [reqId]);
+                } else {
+                    await conexion.query(`UPDATE requerimientos SET estado = 'PENDIENTE' WHERE id = ?`, [reqId]);
+                }
+            } else {
+                await conexion.query(`UPDATE requerimientos SET estado = 'COMPLETADO' WHERE id = ?`, [reqId]);
+            }
+        }
+
+        await conexion.commit();
+        res.json({ mensaje: 'Ingreso actualizado correctamente. Saldos recalculados.' });
+
+    } catch (error) {
+        await conexion.rollback();
+        console.error('Error al actualizar ingreso:', error);
+        res.status(500).json({ mensaje: 'Error al actualizar el ingreso' });
+    } finally {
+        conexion.release();
+    }
+};
+
 module.exports = {
     getRequerimientosPendientes,
     crearIngreso,
     getHistorialIngresos,
     getDetalleIngreso,
-    getHistorialIngresosDetallado
+    getHistorialIngresosDetallado,
+    eliminarIngreso,
+    actualizarIngreso
 };

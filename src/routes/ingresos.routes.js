@@ -18,4 +18,10 @@ router.get('/:id/detalle', verificarToken, ingresosController.getDetalleIngreso)
 // POST: Registrar un camión/viaje con sus entregas
 router.post('/', [verificarToken, esAdmin], ingresosController.crearIngreso);
 
+// PUT: Actualizar/Editar un ingreso existente
+router.put('/:id', [verificarToken, esAdmin], ingresosController.actualizarIngreso);
+
+// DELETE: Eliminar un ingreso
+router.delete('/:id', [verificarToken, esAdmin], ingresosController.eliminarIngreso);
+
 module.exports = router;
