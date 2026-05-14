@@ -10,6 +10,9 @@ router.post('/', [verificarToken, esAdmin], requerimientosController.crearRequer
 // GET: Obtener historial de requerimientos
 router.get('/historial', verificarToken, requerimientosController.getHistorial);
 
+// GET: Obtener el siguiente código correlativo de requerimiento
+router.get('/siguiente-codigo', verificarToken, requerimientosController.getSiguienteCodigo);
+
 // GET: Obtener historial detallado de todos los requerimientos
 router.get('/historial/detallado', verificarToken, requerimientosController.getHistorialDetallado);
 

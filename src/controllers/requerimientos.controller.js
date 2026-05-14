@@ -1,4 +1,5 @@
 const requerimientosService = require('../services/requerimientos.service');
+const pool = require('../config/db');
 
 const crearRequerimiento = async (req, res, next) => {
     try {
@@ -13,6 +14,19 @@ const crearRequerimiento = async (req, res, next) => {
         });
     } catch (error) {
         next(error);
+    }
+};
+
+const getSiguienteCodigo = async (req, res, next) => {
+    const conexion = await pool.getConnection();
+    try {
+        const { fecha } = req.query;
+        const codigo = await requerimientosService.generarCodigo(conexion, fecha);
+        res.json({ codigo });
+    } catch (error) {
+        next(error);
+    } finally {
+        conexion.release();
     }
 };
 
@@ -123,5 +137,6 @@ module.exports = {
     getDetalles,
     getHistorialDetallado,
     actualizarRequerimiento,
-    eliminarRequerimiento
+    eliminarRequerimiento,
+    getSiguienteCodigo
 };
