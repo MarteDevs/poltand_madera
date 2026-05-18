@@ -1,6 +1,37 @@
 const db = require('../config/db');
 
 // ==============================================================================
+// FUNCIÓN HELPER: Recalcular estado del requerimiento
+// ==============================================================================
+async function recalcularEstadoRequerimiento(conexion, requerimiento_id) {
+    const [faltantes] = await conexion.query(`
+        SELECT (rd.cantidad - COALESCE(SUM(ind.cantidad_entregada), 0)) AS faltante
+        FROM requerimientos_detalle rd
+        LEFT JOIN ingresos_detalle ind ON ind.requerimiento_detalle_id = rd.id
+        WHERE rd.requerimiento_id = ?
+        GROUP BY rd.id, rd.cantidad
+        HAVING faltante > 0
+    `, [requerimiento_id]);
+
+    if (faltantes.length === 0) {
+        await conexion.query(`UPDATE requerimientos SET estado = 'COMPLETADO' WHERE id = ?`, [requerimiento_id]);
+    } else {
+        const [entregas] = await conexion.query(`
+            SELECT COALESCE(SUM(ind.cantidad_entregada), 0) AS total_entregado
+            FROM requerimientos_detalle rd
+            LEFT JOIN ingresos_detalle ind ON ind.requerimiento_detalle_id = rd.id
+            WHERE rd.requerimiento_id = ?
+        `, [requerimiento_id]);
+
+        if (entregas[0].total_entregado > 0) {
+            await conexion.query(`UPDATE requerimientos SET estado = 'PARCIAL' WHERE id = ?`, [requerimiento_id]);
+        } else {
+            await conexion.query(`UPDATE requerimientos SET estado = 'PENDIENTE' WHERE id = ?`, [requerimiento_id]);
+        }
+    }
+}
+
+// ==============================================================================
 // 1. OBTENER FALTANTES (Para mostrar en la pantalla de "Registrar Ingreso" en Vue)
 // ==============================================================================
 const getRequerimientosPendientes = async (req, res) => {
@@ -125,28 +156,7 @@ const crearIngreso = async (req, res) => {
 
             // C. Por cada requerimiento afectado, verificamos si aún tiene faltantes
             for (const r of reqsAfectados) {
-                const [verificacion] = await conexion.query(`
-                    SELECT (rd.cantidad - COALESCE(SUM(ind.cantidad_entregada), 0)) AS faltante
-                    FROM requerimientos_detalle rd
-                    LEFT JOIN ingresos_detalle ind ON ind.requerimiento_detalle_id = rd.id
-                    WHERE rd.requerimiento_id = ?
-                    GROUP BY rd.id, rd.cantidad
-                    HAVING faltante > 0
-                `, [r.requerimiento_id]);
-
-                // Si el resultado viene vacío (length === 0), significa que no hay NINGÚN faltante en NINGUNA línea.
-                if (verificacion.length === 0) {
-                    await conexion.query(
-                        `UPDATE requerimientos SET estado = 'COMPLETADO' WHERE id = ?`, 
-                        [r.requerimiento_id]
-                    );
-                } else {
-                    // Si hay faltantes pero hubo entrega, es PARCIAL
-                    await conexion.query(
-                        `UPDATE requerimientos SET estado = 'PARCIAL' WHERE id = ?`, 
-                        [r.requerimiento_id]
-                    );
-                }
+                await recalcularEstadoRequerimiento(conexion, r.requerimiento_id);
             }
         }
 
@@ -309,33 +319,7 @@ const eliminarIngreso = async (req, res) => {
         // 3. Recalcular el estado de los requerimientos afectados
         if (reqsAfectados.length > 0) {
             for (const r of reqsAfectados) {
-                const [verificacion] = await conexion.query(`
-                    SELECT (rd.cantidad - COALESCE(SUM(ind.cantidad_entregada), 0)) AS faltante
-                    FROM requerimientos_detalle rd
-                    LEFT JOIN ingresos_detalle ind ON ind.requerimiento_detalle_id = rd.id
-                    WHERE rd.requerimiento_id = ?
-                    GROUP BY rd.id, rd.cantidad
-                    HAVING faltante > 0
-                `, [r.requerimiento_id]);
-
-                // Si hay lineas con faltante > 0
-                if (verificacion.length > 0) {
-                    // Verificamos si tiene ALGO entregado para saber si es PARCIAL o PENDIENTE
-                    const [entregas] = await conexion.query(`
-                        SELECT COALESCE(SUM(ind.cantidad_entregada), 0) AS total_entregado
-                        FROM requerimientos_detalle rd
-                        LEFT JOIN ingresos_detalle ind ON ind.requerimiento_detalle_id = rd.id
-                        WHERE rd.requerimiento_id = ?
-                    `, [r.requerimiento_id]);
-
-                    if (entregas[0].total_entregado > 0) {
-                        await conexion.query(`UPDATE requerimientos SET estado = 'PARCIAL' WHERE id = ?`, [r.requerimiento_id]);
-                    } else {
-                        await conexion.query(`UPDATE requerimientos SET estado = 'PENDIENTE' WHERE id = ?`, [r.requerimiento_id]);
-                    }
-                } else {
-                    await conexion.query(`UPDATE requerimientos SET estado = 'COMPLETADO' WHERE id = ?`, [r.requerimiento_id]);
-                }
+                await recalcularEstadoRequerimiento(conexion, r.requerimiento_id);
             }
         }
 
@@ -430,32 +414,7 @@ const actualizarIngreso = async (req, res) => {
 
         // 7. Recalcular estado de cada requerimiento afectado
         for (const reqId of todosLosReqs) {
-            const [verificacion] = await conexion.query(`
-                SELECT (rd.cantidad - COALESCE(SUM(ind.cantidad_entregada), 0)) AS faltante
-                FROM requerimientos_detalle rd
-                LEFT JOIN ingresos_detalle ind ON ind.requerimiento_detalle_id = rd.id
-                WHERE rd.requerimiento_id = ?
-                GROUP BY rd.id, rd.cantidad
-                HAVING faltante > 0
-            `, [reqId]);
-
-            if (verificacion.length > 0) {
-                // Verificamos si tiene ALGO entregado para saber si es PARCIAL o PENDIENTE
-                const [entregas] = await conexion.query(`
-                    SELECT COALESCE(SUM(ind.cantidad_entregada), 0) AS total_entregado
-                    FROM requerimientos_detalle rd
-                    LEFT JOIN ingresos_detalle ind ON ind.requerimiento_detalle_id = rd.id
-                    WHERE rd.requerimiento_id = ?
-                `, [reqId]);
-
-                if (entregas[0].total_entregado > 0) {
-                    await conexion.query(`UPDATE requerimientos SET estado = 'PARCIAL' WHERE id = ?`, [reqId]);
-                } else {
-                    await conexion.query(`UPDATE requerimientos SET estado = 'PENDIENTE' WHERE id = ?`, [reqId]);
-                }
-            } else {
-                await conexion.query(`UPDATE requerimientos SET estado = 'COMPLETADO' WHERE id = ?`, [reqId]);
-            }
+            await recalcularEstadoRequerimiento(conexion, reqId);
         }
 
         await conexion.commit();
