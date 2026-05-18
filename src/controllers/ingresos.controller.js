@@ -190,7 +190,23 @@ const getHistorialIngresos = async (req, res) => {
                 i.vale,
                 i.observacion,
                 COUNT(ind.id) AS total_items,
-                COALESCE(SUM(ind.cantidad_entregada), 0) AS total_entregado
+                COALESCE(SUM(ind.cantidad_entregada), 0) AS total_entregado,
+                (
+                    SELECT GROUP_CONCAT(DISTINCT m_name ORDER BY m_name SEPARATOR ', ')
+                    FROM (
+                        SELECT m.nombre AS m_name
+                        FROM ingresos_detalle id2
+                        JOIN requerimientos_detalle rd ON rd.id = id2.requerimiento_detalle_id
+                        JOIN requerimientos r ON r.id = rd.requerimiento_id
+                        JOIN minas m ON m.id = r.mina_id
+                        WHERE id2.ingreso_id = i.id AND id2.es_extra = 0
+                        UNION
+                        SELECT me.nombre AS m_name
+                        FROM ingresos_detalle id3
+                        JOIN minas me ON me.id = id3.mina_id
+                        WHERE id3.ingreso_id = i.id AND id3.es_extra = 1
+                    ) AS all_minas
+                ) AS minas
             FROM ingresos i
             LEFT JOIN ingresos_detalle ind ON ind.ingreso_id = i.id
             GROUP BY i.id, i.codigo_ingreso, i.fecha, i.viaje, i.vale, i.observacion
