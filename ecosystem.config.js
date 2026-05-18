@@ -8,13 +8,11 @@ module.exports = {
       // Entorno de producción por defecto
       env: {
         NODE_ENV: 'production',
-        PORT: 3000,
       },
 
       // Sobreescritura para desarrollo (pm2 start --env development)
       env_development: {
         NODE_ENV: 'development',
-        PORT: 3000,
       },
 
       // Instancias y modo
