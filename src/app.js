@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
+const logger = require('./config/logger');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const hpp = require('hpp');
@@ -33,6 +34,7 @@ app.use(cors({
         if (!origin || dominiosPermitidos.indexOf(origin) !== -1) {
             callback(null, true);
         } else {
+            logger.warn(`CORS blocked origin: ${origin}`);
             callback(new Error('Bloqueado por CORS: Acceso denegado a este dominio.'));
         }
     },
@@ -49,7 +51,7 @@ const limitadorGlobal = rateLimit({
 app.use('/api/', limitadorGlobal); // Aplicarlo solo a nuestras rutas API
 
 // Middlewares (Configuraciones base)
-app.use(morgan('dev')); // Muestra en consola las peticiones
+app.use(morgan('combined', { stream: logger.stream })); // Winston HTTP logging
 app.use(express.json()); // Permite recibir datos en formato JSON
 
 // 4. Prevenir HTTP Parameter Pollution (Debe ir después del body-parser/express.json)
@@ -100,5 +102,6 @@ app.use(errorHandler);
 // Encender el servidor
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
+    logger.info(`🚀 Server running on http://localhost:${PORT}`);
+    logger.info(`📋 Environment: ${process.env.NODE_ENV || 'development'}`);
 });

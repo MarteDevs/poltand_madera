@@ -1,9 +1,13 @@
 /**
  * Middleware centralizado de manejo de errores
  */
+const logger = require('../config/logger');
+
 const errorHandler = (err, req, res, next) => {
-    console.error(`[${new Date().toISOString()}] ❌ Error:`, err.message);
-    
+    logger.error(`${req.method} ${req.originalUrl} - ${err.message}`, {
+        ip: req.ip,
+        stack: err.stack
+    });
     // Si ya se envió una respuesta, pasar al siguiente middleware
     if (res.headersSent) {
         return next(err);
