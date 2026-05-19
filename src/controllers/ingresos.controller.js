@@ -4,6 +4,13 @@ const db = require('../config/db');
 // FUNCIÓN HELPER: Recalcular estado del requerimiento
 // ==============================================================================
 async function recalcularEstadoRequerimiento(conexion, requerimiento_id) {
+    // 1. Verificar si el requerimiento fue cerrado manualmente
+    const [reqs] = await conexion.query('SELECT is_cerrado FROM requerimientos WHERE id = ?', [requerimiento_id]);
+    if (reqs.length > 0 && reqs[0].is_cerrado === 1) {
+        await conexion.query(`UPDATE requerimientos SET estado = 'COMPLETADO' WHERE id = ?`, [requerimiento_id]);
+        return;
+    }
+
     const [faltantes] = await conexion.query(`
         SELECT (rd.cantidad - COALESCE(SUM(ind.cantidad_entregada), 0)) AS faltante
         FROM requerimientos_detalle rd

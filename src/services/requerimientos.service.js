@@ -223,6 +223,17 @@ class RequerimientosService {
             conexion.release();
         }
     }
+    
+    async forzarCierre(id) {
+        const [result] = await pool.query(
+            `UPDATE requerimientos SET is_cerrado = 1, estado = 'COMPLETADO' WHERE id = ?`,
+            [id]
+        );
+        if (result.affectedRows === 0) {
+            throw new Error('Requerimiento no encontrado');
+        }
+        return { success: true };
+    }
 }
 
 module.exports = new RequerimientosService();

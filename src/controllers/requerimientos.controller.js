@@ -131,6 +131,16 @@ const eliminarRequerimiento = async (req, res, next) => {
     }
 };
 
+const forzarCierreRequerimiento = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        await requerimientosService.forzarCierre(id);
+        res.json({ mensaje: 'Requerimiento cerrado exitosamente' });
+    } catch (error) {
+        next(error);
+    }
+};
+
 module.exports = {
     crearRequerimiento,
     getHistorial,
@@ -138,5 +148,6 @@ module.exports = {
     getHistorialDetallado,
     actualizarRequerimiento,
     eliminarRequerimiento,
-    getSiguienteCodigo
+    getSiguienteCodigo,
+    forzarCierreRequerimiento
 };

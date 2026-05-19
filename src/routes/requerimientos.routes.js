@@ -25,4 +25,7 @@ router.put('/:id', [verificarToken, esAdmin], requerimientosController.actualiza
 // DELETE: Eliminar un requerimiento
 router.delete('/:id', [verificarToken, esAdmin], requerimientosController.eliminarRequerimiento);
 
+// PUT: Forzar cierre (completado manual) de un requerimiento
+router.put('/:id/forzar-cierre', [verificarToken, esAdmin], requerimientosController.forzarCierreRequerimiento);
+
 module.exports = router;
