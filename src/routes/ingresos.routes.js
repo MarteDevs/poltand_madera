@@ -2,9 +2,13 @@ const express = require('express');
 const router = express.Router();
 const ingresosController = require('../controllers/ingresos.controller');
 const { verificarToken, esAdmin } = require('../middleware/auth.middleware');
+const { validarApiKey } = require('../middleware/apiKey.middleware');
 
 // GET: Historial de todos los ingresos registrados
 router.get('/', verificarToken, ingresosController.getHistorialIngresos);
+
+// GET: Endpoint para reportes externos (Protegido por API Key)
+router.get('/public/detallado', validarApiKey, ingresosController.getHistorialIngresosDetallado);
 
 // GET: Historial completo y detallado para exportación a Excel
 router.get('/exportar/detallado', verificarToken, ingresosController.getHistorialIngresosDetallado);
