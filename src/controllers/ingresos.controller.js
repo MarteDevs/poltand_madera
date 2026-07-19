@@ -215,7 +215,22 @@ const getHistorialIngresos = async (req, res) => {
                         JOIN minas me ON me.id = id3.mina_id
                         WHERE id3.ingreso_id = i.id AND id3.es_extra = 1
                     ) AS all_minas
-                ) AS minas
+                ) AS minas,
+                (
+                    SELECT GROUP_CONCAT(DISTINCT p_name ORDER BY p_name SEPARATOR ', ')
+                    FROM (
+                        SELECT p.nombre AS p_name
+                        FROM ingresos_detalle id4
+                        JOIN requerimientos_detalle rd2 ON rd2.id = id4.requerimiento_detalle_id
+                        JOIN proveedores p ON p.id = rd2.proveedor_id
+                        WHERE id4.ingreso_id = i.id AND id4.es_extra = 0
+                        UNION
+                        SELECT pe.nombre AS p_name
+                        FROM ingresos_detalle id5
+                        JOIN proveedores pe ON pe.id = id5.proveedor_id
+                        WHERE id5.ingreso_id = i.id AND id5.es_extra = 1
+                    ) AS all_provs
+                ) AS proveedores
             FROM ingresos i
             LEFT JOIN ingresos_detalle ind ON ind.ingreso_id = i.id
             LEFT JOIN requerimientos_detalle rd ON rd.id = ind.requerimiento_detalle_id

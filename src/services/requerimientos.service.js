@@ -80,11 +80,13 @@ class RequerimientosService {
                 r.id, r.codigo_req, DATE_FORMAT(r.fecha, '%Y-%m-%d') as fecha, 
                 m.nombre as mina, s.nombre as supervisor, r.estado,
                 SUM(rd.cantidad * rd.precio_proveedor) as total_proveedor,
-                SUM(rd.cantidad * rd.precio_mina) as total_mina
+                SUM(rd.cantidad * rd.precio_mina) as total_mina,
+                GROUP_CONCAT(DISTINCT p.nombre ORDER BY p.nombre SEPARATOR ', ') as proveedores
             FROM requerimientos r
             JOIN minas m ON r.mina_id = m.id
             LEFT JOIN supervisor s ON r.supervisor_id = s.id
             JOIN requerimientos_detalle rd ON r.id = rd.requerimiento_id
+            JOIN proveedores p ON rd.proveedor_id = p.id
             GROUP BY r.id
             ORDER BY r.id DESC
         `);
