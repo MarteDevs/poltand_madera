@@ -77,6 +77,7 @@ const getHistorialDetallado = async (req, res, next) => {
                 DATE_FORMAT(r.fecha, '%Y-%m-%d') as fecha, 
                 m.nombre AS mina, 
                 COALESCE(s.nombre, 'Sin asignar') AS supervisor, 
+                r.tipo_pago,
                 r.estado,
                 a.nombre AS articulo, 
                 p.nombre AS proveedor, 
@@ -95,7 +96,7 @@ const getHistorialDetallado = async (req, res, next) => {
             JOIN proveedores p ON rd.proveedor_id = p.id
             LEFT JOIN ingresos_detalle ind ON ind.requerimiento_detalle_id = rd.id
             GROUP BY 
-                r.id, r.codigo_req, r.fecha, m.nombre, s.nombre, r.estado,
+                r.id, r.codigo_req, r.fecha, m.nombre, s.nombre, r.tipo_pago, r.estado,
                 rd.id, a.nombre, p.nombre, rd.cantidad, rd.precio_proveedor, rd.precio_mina
             ORDER BY r.fecha DESC, r.codigo_req DESC, a.nombre ASC
         `);
