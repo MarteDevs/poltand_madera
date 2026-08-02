@@ -230,10 +230,12 @@ const getHistorialIngresos = async (req, res) => {
                         JOIN proveedores pe ON pe.id = id5.proveedor_id
                         WHERE id5.ingreso_id = i.id AND id5.es_extra = 1
                     ) AS all_provs
-                ) AS proveedores
+                ) AS proveedores,
+                MAX(req.tipo_pago) AS tipo_pago
             FROM ingresos i
             LEFT JOIN ingresos_detalle ind ON ind.ingreso_id = i.id
             LEFT JOIN requerimientos_detalle rd ON rd.id = ind.requerimiento_detalle_id
+            LEFT JOIN requerimientos req ON req.id = rd.requerimiento_id
             GROUP BY i.id, i.codigo_ingreso, i.fecha, i.viaje, i.vale, i.observacion
             ORDER BY i.fecha DESC, i.id DESC
         `;
@@ -300,6 +302,7 @@ const getHistorialIngresosDetallado = async (req, res) => {
                 i.viaje,
                 i.vale,
                 i.observacion,
+                r.tipo_pago,
                 COALESCE(r.codigo_req, 'EXTRA') AS codigo_req,
                 COALESCE(m.nombre, m_extra.nombre) AS mina,
                 COALESCE(a.nombre, a_extra.nombre) AS articulo,
