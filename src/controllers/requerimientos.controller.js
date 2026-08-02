@@ -3,11 +3,11 @@ const pool = require('../config/db');
 
 const crearRequerimiento = async (req, res, next) => {
     try {
-        const { fecha, mina_id, supervisor_id, detalles } = req.body;
+        const { fecha, mina_id, supervisor_id, tipo_pago, detalles } = req.body;
         if (!detalles || detalles.length === 0) {
             return res.status(400).json({ mensaje: 'El requerimiento debe tener al menos un artículo.' });
         }
-        const result = await requerimientosService.crear({ fecha, mina_id, supervisor_id, detalles });
+        const result = await requerimientosService.crear({ fecha, mina_id, supervisor_id, tipo_pago, detalles });
         res.status(201).json({
             mensaje: 'Requerimiento creado con éxito',
             codigo_req: result.codigo
@@ -108,13 +108,13 @@ const getHistorialDetallado = async (req, res, next) => {
 const actualizarRequerimiento = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const { fecha, mina_id, supervisor_id, detalles } = req.body;
+        const { fecha, mina_id, supervisor_id, tipo_pago, detalles } = req.body;
         
         if (!detalles || detalles.length === 0) {
             return res.status(400).json({ mensaje: 'El requerimiento debe tener al menos un artículo.' });
         }
 
-        await requerimientosService.update(id, { fecha, mina_id, supervisor_id, detalles });
+        await requerimientosService.update(id, { fecha, mina_id, supervisor_id, tipo_pago, detalles });
         res.json({ mensaje: 'Requerimiento actualizado con éxito' });
     } catch (error) {
         next(error);

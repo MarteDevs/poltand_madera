@@ -42,14 +42,14 @@ class RequerimientosService {
         try {
             await conexion.beginTransaction();
 
-            const { fecha, mina_id, supervisor_id, detalles } = data;
+            const { fecha, mina_id, supervisor_id, tipo_pago, detalles } = data;
             const codigo_req = await this.generarCodigo(conexion, fecha);
 
             // 1. Insertar cabecera
             const [result] = await conexion.query(
-                `INSERT INTO requerimientos (codigo_req, fecha, mina_id, supervisor_id, estado) 
-                 VALUES (?, ?, ?, ?, 'PENDIENTE')`,
-                [codigo_req, fecha, mina_id, supervisor_id]
+                `INSERT INTO requerimientos (codigo_req, fecha, mina_id, supervisor_id, tipo_pago, estado) 
+                 VALUES (?, ?, ?, ?, ?, 'PENDIENTE')`,
+                [codigo_req, fecha, mina_id, supervisor_id, tipo_pago || null]
             );
 
             const requerimiento_id = result.insertId;
@@ -78,7 +78,7 @@ class RequerimientosService {
         const [rows] = await pool.query(`
             SELECT 
                 r.id, r.codigo_req, DATE_FORMAT(r.fecha, '%Y-%m-%d') as fecha, 
-                m.nombre as mina, s.nombre as supervisor, r.estado,
+                m.nombre as mina, s.nombre as supervisor, r.tipo_pago, r.estado,
                 SUM(rd.cantidad * rd.precio_proveedor) as total_proveedor,
                 SUM(rd.cantidad * rd.precio_mina) as total_mina,
                 GROUP_CONCAT(DISTINCT p.nombre ORDER BY p.nombre SEPARATOR ', ') as proveedores
@@ -127,7 +127,7 @@ class RequerimientosService {
         try {
             await conexion.beginTransaction();
 
-            const { fecha, mina_id, supervisor_id, detalles } = data;
+            const { fecha, mina_id, supervisor_id, tipo_pago, detalles } = data;
 
             // 1. Obtener detalles actuales con lo entregado para validar
             const [detallesActuales] = await conexion.query(`
@@ -158,8 +158,8 @@ class RequerimientosService {
 
             // 3. Actualizar cabecera
             await conexion.query(
-                `UPDATE requerimientos SET fecha = ?, mina_id = ?, supervisor_id = ? WHERE id = ?`,
-                [fecha, mina_id, supervisor_id, id]
+                `UPDATE requerimientos SET fecha = ?, mina_id = ?, supervisor_id = ?, tipo_pago = ? WHERE id = ?`,
+                [fecha, mina_id, supervisor_id, tipo_pago || null, id]
             );
 
             // 4. Procesar detalles

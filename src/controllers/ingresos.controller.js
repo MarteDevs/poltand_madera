@@ -87,7 +87,7 @@ const crearIngreso = async (req, res) => {
     const conexion = await db.getConnection();
 
     try {
-        const { fecha, viaje, vale, observacion, detalles } = req.body;
+        const { fecha, viaje, viaje_id, vale, observacion, detalles } = req.body;
 
         if (!detalles || detalles.length === 0) {
             return res.status(400).json({ mensaje: 'El ingreso debe tener al menos un artículo entregado.' });
@@ -111,9 +111,9 @@ const crearIngreso = async (req, res) => {
 
         // 2. Insertar CABECERA del ingreso
         const [resCabecera] = await conexion.query(
-            `INSERT INTO ingresos (codigo_ingreso, fecha, viaje, vale, observacion) 
-             VALUES (?, ?, ?, ?, ?)`,
-            [codigo_ingreso, fecha, viaje, vale, observacion]
+            `INSERT INTO ingresos (codigo_ingreso, fecha, viaje, viaje_id, vale, observacion) 
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [codigo_ingreso, fecha, viaje, viaje_id || null, vale, observacion]
         );
         const ingreso_id = resCabecera.insertId;
 
@@ -383,7 +383,7 @@ const actualizarIngreso = async (req, res) => {
     const conexion = await db.getConnection();
     try {
         const { id } = req.params;
-        const { fecha, viaje, vale, observacion, detalles } = req.body;
+        const { fecha, viaje, viaje_id, vale, observacion, detalles } = req.body;
 
         if (!detalles || detalles.length === 0) {
             return res.status(400).json({ mensaje: 'El ingreso debe tener al menos un artículo entregado.' });
@@ -401,8 +401,8 @@ const actualizarIngreso = async (req, res) => {
 
         // 2. Actualizar cabecera
         await conexion.query(
-            `UPDATE ingresos SET fecha = ?, viaje = ?, vale = ?, observacion = ? WHERE id = ?`,
-            [fecha, viaje, vale, observacion, id]
+            `UPDATE ingresos SET fecha = ?, viaje = ?, viaje_id = ?, vale = ?, observacion = ? WHERE id = ?`,
+            [fecha, viaje, viaje_id || null, vale, observacion, id]
         );
 
         // 3. Borrar detalles actuales (lo más fácil para reconstruir todo con o sin extras)
