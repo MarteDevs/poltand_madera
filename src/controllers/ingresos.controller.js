@@ -87,10 +87,16 @@ const crearIngreso = async (req, res) => {
     const conexion = await db.getConnection();
 
     try {
-        const { fecha, viaje, viaje_id, vale, observacion, detalles, tipo_pago } = req.body;
+        let { fecha, viaje, viaje_id, vale, observacion, detalles, tipo_pago } = req.body;
 
         if (!detalles || detalles.length === 0) {
             return res.status(400).json({ mensaje: 'El ingreso debe tener al menos un artículo entregado.' });
+        }
+
+        // Regla de negocio: DEPÓSITO y DIRECTO no tienen número de viaje
+        if (tipo_pago === 'DEPOSITO' || tipo_pago === 'DIRECTO') {
+            viaje = null;
+            viaje_id = null;
         }
 
         await conexion.beginTransaction(); // 🛡️ Iniciamos transacción
@@ -98,7 +104,8 @@ const crearIngreso = async (req, res) => {
         // 1. Generar Código de Ingreso (Ej: ENT-20260403-V123)
         const fechaActual = new Date(fecha);
         const anioMesDia = `${fechaActual.getFullYear()}${(fechaActual.getMonth() + 1).toString().padStart(2, '0')}${fechaActual.getDate().toString().padStart(2, '0')}`;
-        const viajeLimpio = viaje ? viaje.replace(/\s+/g, '-').toUpperCase() : 'SV'; // SV = Sin Viaje
+        const prefijoTipo = (tipo_pago === 'DEPOSITO') ? 'DEP' : (tipo_pago === 'DIRECTO' ? 'DIR' : null);
+        const viajeLimpio = prefijoTipo || (viaje ? viaje.replace(/\s+/g, '-').toUpperCase() : 'SV'); // SV = Sin Viaje
         
         // Correlativo secuencial basado en ingresos del mismo día
         const [ingresosHoy] = await conexion.query(
@@ -113,7 +120,7 @@ const crearIngreso = async (req, res) => {
         const [resCabecera] = await conexion.query(
             `INSERT INTO ingresos (codigo_ingreso, fecha, viaje, viaje_id, vale, observacion, tipo_pago) 
              VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [codigo_ingreso, fecha, viaje, viaje_id || null, vale, observacion, tipo_pago || null]
+            [codigo_ingreso, fecha, viaje || null, viaje_id || null, vale, observacion, tipo_pago || null]
         );
         const ingreso_id = resCabecera.insertId;
 
@@ -386,10 +393,16 @@ const actualizarIngreso = async (req, res) => {
     const conexion = await db.getConnection();
     try {
         const { id } = req.params;
-        const { fecha, viaje, viaje_id, vale, observacion, detalles, tipo_pago } = req.body;
+        let { fecha, viaje, viaje_id, vale, observacion, detalles, tipo_pago } = req.body;
 
         if (!detalles || detalles.length === 0) {
             return res.status(400).json({ mensaje: 'El ingreso debe tener al menos un artículo entregado.' });
+        }
+
+        // Regla de negocio: DEPÓSITO y DIRECTO no tienen número de viaje
+        if (tipo_pago === 'DEPOSITO' || tipo_pago === 'DIRECTO') {
+            viaje = null;
+            viaje_id = null;
         }
 
         await conexion.beginTransaction();
@@ -405,7 +418,7 @@ const actualizarIngreso = async (req, res) => {
         // 2. Actualizar cabecera
         await conexion.query(
             `UPDATE ingresos SET fecha = ?, viaje = ?, viaje_id = ?, vale = ?, observacion = ?, tipo_pago = ? WHERE id = ?`,
-            [fecha, viaje, viaje_id || null, vale, observacion, tipo_pago || null, id]
+            [fecha, viaje || null, viaje_id || null, vale, observacion, tipo_pago || null, id]
         );
 
         // 3. Borrar detalles actuales (lo más fácil para reconstruir todo con o sin extras)
