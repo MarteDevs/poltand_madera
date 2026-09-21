@@ -2,8 +2,66 @@ const articulosService = require('../services/articulos.service');
 
 const getArticulos = async (req, res, next) => {
     try {
-        const rows = await articulosService.getAll();
+        const { proveedor_id } = req.query;
+        const rows = await articulosService.getAll(proveedor_id);
         res.json(rows);
+    } catch (error) {
+        next(error);
+    }
+};
+
+const getPreciosProveedores = async (req, res, next) => {
+    try {
+        const { proveedor_id } = req.query;
+        const rows = await articulosService.getPreciosProveedores(proveedor_id);
+        res.json(rows);
+    } catch (error) {
+        next(error);
+    }
+};
+
+const guardarPrecioProveedor = async (req, res, next) => {
+    try {
+        const { articulo_id, proveedor_id, precio_proveedor, precio_mina } = req.body;
+
+        if (!articulo_id || !proveedor_id) {
+            return res.status(400).json({ mensaje: 'articulo_id y proveedor_id son obligatorios' });
+        }
+        if (precio_proveedor === undefined || precio_proveedor === null || precio_mina === undefined || precio_mina === null) {
+            return res.status(400).json({ mensaje: 'precio_proveedor y precio_mina son obligatorios' });
+        }
+
+        await articulosService.guardarPrecioProveedor({
+            articulo_id,
+            proveedor_id,
+            precio_proveedor,
+            precio_mina
+        });
+
+        res.json({ mensaje: 'Precio por proveedor guardado correctamente' });
+    } catch (error) {
+        next(error);
+    }
+};
+
+const clonarPrecios = async (req, res, next) => {
+    try {
+        const { origen_proveedor_id, destino_proveedor_id } = req.body;
+
+        if (!origen_proveedor_id || !destino_proveedor_id) {
+            return res.status(400).json({ mensaje: 'origen_proveedor_id y destino_proveedor_id son obligatorios' });
+        }
+
+        if (Number(origen_proveedor_id) === Number(destino_proveedor_id)) {
+            return res.status(400).json({ mensaje: 'El proveedor origen y destino no pueden ser el mismo' });
+        }
+
+        await articulosService.clonarPrecios({
+            origen_proveedor_id,
+            destino_proveedor_id
+        });
+
+        res.json({ mensaje: 'Precios clonados exitosamente' });
     } catch (error) {
         next(error);
     }
@@ -43,4 +101,12 @@ const desactivarArticulo = async (req, res, next) => {
     }
 };
 
-module.exports = { getArticulos, crearArticulo, actualizarArticulo, desactivarArticulo };
+module.exports = {
+    getArticulos,
+    getPreciosProveedores,
+    guardarPrecioProveedor,
+    clonarPrecios,
+    crearArticulo,
+    actualizarArticulo,
+    desactivarArticulo
+};

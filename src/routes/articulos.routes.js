@@ -9,6 +9,11 @@ const camposArticulo = ['nombre', 'precio_proveedor', 'precio_mina'];
 // GET no requiere ser admin, solo estar logueado
 router.get('/', verificarToken, articulosController.getArticulos);
 
+// Precios diferenciados por proveedor (antes de /:id para evitar colisiones)
+router.get('/precios-proveedores', articulosController.getPreciosProveedores);
+router.post('/precios-proveedores', articulosController.guardarPrecioProveedor);
+router.post('/precios-proveedores/clonar', articulosController.clonarPrecios);
+
 // POST, PUT, DELETE requieren ser admin
 router.post('/', [verificarToken, esAdmin, validarCamposRequeridos(camposArticulo)], articulosController.crearArticulo);
 router.put('/:id', [verificarToken, esAdmin, validarIdParam, validarCamposRequeridos(camposArticulo)], articulosController.actualizarArticulo);

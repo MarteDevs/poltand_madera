@@ -1,0 +1,12 @@
+{
+    "schema_version": 2,
+    "commit": "c5396762e6102f4aad75da10c9f7ad0257a02cc4",
+    "indexed_at": "2026-09-21T20:39:09Z",
+    "project": "madera-backend",
+    "nodes": 219,
+    "edges": 494,
+    "original_size": 2097152,
+    "compressed_size": 163810,
+    "compression_level": 9,
+    "reconcile_basis": "git-clean-head"
+}
