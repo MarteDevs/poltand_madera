@@ -2,8 +2,8 @@ const articulosService = require('../services/articulos.service');
 
 const getArticulos = async (req, res, next) => {
     try {
-        const { proveedor_id } = req.query;
-        const rows = await articulosService.getAll(proveedor_id);
+        const { proveedor_id, estado } = req.query;
+        const rows = await articulosService.getAll(proveedor_id, estado);
         res.json(rows);
     } catch (error) {
         next(error);
@@ -94,9 +94,22 @@ const actualizarArticulo = async (req, res, next) => {
 const desactivarArticulo = async (req, res, next) => {
     try {
         const { id } = req.params;
-        await articulosService.softDelete(id);
-        res.json({ mensaje: 'Artículo desactivado' });
+        const resultado = await articulosService.delete(id);
+        res.json({ mensaje: resultado.deleted ? 'Artículo eliminado definitivamente' : 'Artículo desactivado' });
     } catch (error) {
+        next(error);
+    }
+};
+
+const reactivarArticulo = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        await articulosService.reactivar(id);
+        res.json({ mensaje: 'Artículo reactivado correctamente' });
+    } catch (error) {
+        if (error.code === 'ER_DUP_ENTRY' || error.status === 400) {
+            return res.status(400).json({ mensaje: error.message });
+        }
         next(error);
     }
 };
@@ -108,5 +121,6 @@ module.exports = {
     clonarPrecios,
     crearArticulo,
     actualizarArticulo,
-    desactivarArticulo
+    desactivarArticulo,
+    reactivarArticulo
 };

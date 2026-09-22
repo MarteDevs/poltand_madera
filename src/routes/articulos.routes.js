@@ -17,6 +17,7 @@ router.post('/precios-proveedores/clonar', [verificarToken, esAdmin], articulosC
 // POST, PUT, DELETE requieren ser admin
 router.post('/', [verificarToken, esAdmin, validarCamposRequeridos(camposArticulo)], articulosController.crearArticulo);
 router.put('/:id', [verificarToken, esAdmin, validarIdParam, validarCamposRequeridos(camposArticulo)], articulosController.actualizarArticulo);
+router.put('/:id/reactivar', [verificarToken, esAdmin, validarIdParam], articulosController.reactivarArticulo);
 router.delete('/:id', [verificarToken, esAdmin, validarIdParam], articulosController.desactivarArticulo);
 
 module.exports = router;
