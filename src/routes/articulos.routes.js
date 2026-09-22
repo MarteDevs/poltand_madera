@@ -10,9 +10,9 @@ const camposArticulo = ['nombre', 'precio_proveedor', 'precio_mina'];
 router.get('/', verificarToken, articulosController.getArticulos);
 
 // Precios diferenciados por proveedor (antes de /:id para evitar colisiones)
-router.get('/precios-proveedores', articulosController.getPreciosProveedores);
-router.post('/precios-proveedores', articulosController.guardarPrecioProveedor);
-router.post('/precios-proveedores/clonar', articulosController.clonarPrecios);
+router.get('/precios-proveedores', verificarToken, articulosController.getPreciosProveedores);
+router.post('/precios-proveedores', [verificarToken, esAdmin], articulosController.guardarPrecioProveedor);
+router.post('/precios-proveedores/clonar', [verificarToken, esAdmin], articulosController.clonarPrecios);
 
 // POST, PUT, DELETE requieren ser admin
 router.post('/', [verificarToken, esAdmin, validarCamposRequeridos(camposArticulo)], articulosController.crearArticulo);

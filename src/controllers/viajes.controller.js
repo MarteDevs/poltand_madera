@@ -2,7 +2,7 @@ const db = require('../config/db');
 
 const getViajes = async (req, res) => {
     try {
-        const [rows] = await db.query('SELECT id, descripcion AS nombre, estado, created_at, updated_at FROM viajes WHERE estado = 1 ORDER BY id ASC');
+        const [rows] = await db.query('SELECT id, nombre, estado, created_at FROM viajes WHERE estado = 1 ORDER BY id ASC');
         res.json(rows);
     } catch (error) {
         console.error('Error al obtener viajes:', error);
@@ -14,7 +14,7 @@ const crearViaje = async (req, res) => {
     try {
         const { nombre } = req.body;
         if (!nombre) return res.status(400).json({ mensaje: 'El nombre es obligatorio.' });
-        const [resultado] = await db.query(`INSERT INTO viajes (descripcion) VALUES (?)`, [nombre]);
+        const [resultado] = await db.query(`INSERT INTO viajes (nombre) VALUES (?)`, [nombre]);
         res.status(201).json({ mensaje: 'Viaje creado', id: resultado.insertId });
     } catch (error) {
         console.error('Error al crear viaje:', error);
@@ -27,7 +27,7 @@ const actualizarViaje = async (req, res) => {
         const { id } = req.params;
         const { nombre } = req.body;
         if (!nombre) return res.status(400).json({ mensaje: 'El nombre es obligatorio.' });
-        const [resultado] = await db.query(`UPDATE viajes SET descripcion = ? WHERE id = ?`, [nombre, id]);
+        const [resultado] = await db.query(`UPDATE viajes SET nombre = ? WHERE id = ?`, [nombre, id]);
         if (resultado.affectedRows === 0) return res.status(404).json({ mensaje: 'Viaje no encontrado' });
         res.json({ mensaje: 'Viaje actualizado correctamente' });
     } catch (error) {
