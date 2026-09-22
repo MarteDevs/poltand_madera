@@ -13,6 +13,9 @@ router.post('/', [verificarToken, esAdmin, validarCamposRequeridos(['nombre'])],
 // PUT: Editar mina (Solo Administradores)
 router.put('/:id', [verificarToken, esAdmin, validarIdParam, validarCamposRequeridos(['nombre'])], minasController.actualizarMina);
 
+// PUT: Reactivar mina (Solo Administradores)
+router.put('/:id/reactivar', [verificarToken, esAdmin, validarIdParam], minasController.reactivarMina);
+
 // DELETE: Desactivar mina (Solo Administradores)
 router.delete('/:id', [verificarToken, esAdmin, validarIdParam], minasController.desactivarMina);
 

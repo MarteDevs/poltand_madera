@@ -6,6 +6,7 @@ const { validarCamposRequeridos, validarIdParam } = require('../middleware/valid
 
 router.get('/', verificarToken, proveedoresController.getProveedores);
 router.post('/', [verificarToken, esAdmin, validarCamposRequeridos(['nombre'])], proveedoresController.crearProveedor);
+router.put('/:id/reactivar', [verificarToken, esAdmin, validarIdParam], proveedoresController.reactivarProveedor);
 router.put('/:id', [verificarToken, esAdmin, validarIdParam, validarCamposRequeridos(['nombre'])], proveedoresController.actualizarProveedor);
 router.delete('/:id', [verificarToken, esAdmin, validarIdParam], proveedoresController.desactivarProveedor);
 
